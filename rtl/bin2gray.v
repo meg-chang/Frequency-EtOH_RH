@@ -10,11 +10,9 @@
 module bin2gray #(
     parameter   WIDTH = 5
 ) ( 
-    input       bin,
-    outout      gray
+    input  wire [WIDTH-1:0] bin,
+    outout wire [WIDTH-1:0] gray
 );
-
-    wire [WIDTH-1:0] bin, gray;
 
     assign gray = bin ^ (bin >> 1);
 
