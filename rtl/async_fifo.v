@@ -38,7 +38,7 @@ module async_fifo #(
     input  wire                  rclk,
     input  wire                  rrst_n,
     input  wire                  rreq, //读使能
-    input  wire [DATA_WIDTH-1:0] rdata,
+    output  wire [DATA_WIDTH-1:0] rdata,
     output wire                  rempty
 );
 
@@ -49,11 +49,11 @@ reg [DATA_WIDTH-1:0] mem [0:DEPTH-1];
 
 // ---- 写侧指针（二进制 + 格雷码） -------------------------------------------
 reg  [PTR_WIDTH-1:0] wbin;
+wire                 winc = wreq & ~wfull;
 wire [PTR_WIDTH-1:0] wbin_next = wbin + (winc ? 1'b1 : 1'b0);
 wire [PTR_WIDTH-1:0] wgray_next;
 
 reg  [PTR_WIDTH-1:0] wgray;
-wire                 winc = wreq & ~wfull;
 
 bin2gray #(.WIDTH(PTR_WIDTH)) u_wgray (
     .bin  (wbin_next),
@@ -72,18 +72,18 @@ end
 
 // ---- 读侧指针（二进制 + 格雷码） -------------------------------------------
 reg  [PTR_WIDTH-1:0] rbin;
+wire                 rinc = rreq & ~rempty;
 wire [PTR_WIDTH-1:0] rbin_next = rbin + (rinc ? 1'b1 : 1'b0);
-wire [PTR_WIDTH-1:0] rgray;
+wire [PTR_WIDTH-1:0] rgray_next;
 
 reg  [PTR_WIDTH-1:0] rgray;
-wire                 rinc = rreq & ~rempty;
 
 bin2gray #(.WIDTH(PTR_WIDTH)) u_rgray (
     .bin  (rbin_next);
     .gray (rgray_next);
 );
 
-always @(posedge clk or negedge rrst_n) begin
+always @(posedge rclk or negedge rrst_n) begin
     if (!rrst_n) begin
         rbin  <= {PTR_WIDTH{1'b0}};
         rgray <= {PTR_WIDTH{1'b0}};

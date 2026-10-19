@@ -13,7 +13,7 @@ module gray2bin #(
         parameter WIDTH = 5
     ) (
         input  wire [WIDTH-1:0] gray,
-        outout wire [WIDTH-1:0] bin
+        output wire [WIDTH-1:0] bin
     );
 
     integer i;

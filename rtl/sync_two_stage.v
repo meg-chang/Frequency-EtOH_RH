@@ -7,7 +7,7 @@
 //  RESET_VL —— 复位值（默认全0）
 // ============================================================================
 
-module sync_two_stsge #(
+module sync_two_stage #(
     parameter WIDTH    = 1,
     parameter RESET_VL = {WIDTH{1'b0}}
 ) (
@@ -21,7 +21,7 @@ reg [WIDTH-1:0] sync_d1;
 reg [WIDTH-1:0] sync_d2;
 
 always @(posedge clk or negedge rst_n) begin
-    if (!rat_n) begin
+    if (!rst_n) begin
         sync_d1 <= RESET_VL;
         sync_d2 <= RESET_VL;
     end else begin
