@@ -24,7 +24,7 @@
 // ============================================================================
 
 module async_fifo #(
-    parameter DATA_WIDTH = 22,
+    parameter DATA_WIDTH = 26,
     parameter DEPTH      = 16,
     parameter PTR_WIDTH  = 5
 ) (
@@ -79,8 +79,8 @@ wire [PTR_WIDTH-1:0] rgray_next;
 reg  [PTR_WIDTH-1:0] rgray;
 
 bin2gray #(.WIDTH(PTR_WIDTH)) u_rgray (
-    .bin  (rbin_next);
-    .gray (rgray_next);
+    .bin  (rbin_next),
+    .gray (rgray_next)
 );
 
 always @(posedge rclk or negedge rrst_n) begin
@@ -117,6 +117,8 @@ assign rempty = (wgray_sync2r == rgray);
 
 // 满：写指针与同步过来的读指针相同、但最高两位相反
 //    （格雷码空/满歧义由多出的那一位解决）
+//    注意：该写法要求 PTR_WIDTH >= 3（即 DEPTH >= 4），
+//          否则 [PTR_WIDTH-3:0] 为非法位域；本项目 DEPTH=16 满足
 assign wfull = (wgray == {~rgray_sync2w[PTR_WIDTH-1:PTR_WIDTH-2],
                            rgray_sync2w[PTR_WIDTH-3:0]});
                         
