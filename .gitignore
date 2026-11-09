@@ -1,3 +1,44 @@
+# ---- 仿真产物 ----
+sim/
 *.out
+*.vvp
 *.vcd
+*.vpd
+*.fsdb
+*.daidir
+*.log
+
+# ---- VCS / Verdi ----
+simv*
+csrc/
+DVEfiles/
+*.vdb
+novas.*
+verdiLog/
+
+# ---- 覆盖率 ----
+*.cm
+cov_report/
+urgReport/
+
+# ---- Quartus ----
+db/
+incremental_db/
+output_files/
+*.qpf
+*.qws
+*.sof
+*.pof
+*.sopcinfo
+*.jdi
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
 *.swp
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ---- 个人求职材料（不公开）----
+doc/简历与面试准备.md
