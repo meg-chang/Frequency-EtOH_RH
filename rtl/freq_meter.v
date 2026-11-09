@@ -20,17 +20,16 @@
 //   COUNT_WIDTH —— 计数值位宽。100ms 窗口最多约 169,140 counts
 //                   （433MHz/256 场景），18bit 够用，设计取 20bit 留裕量
 // ============================================================================
-
 module freq_meter #(
     parameter COUNT_WIDTH = 20
 ) (
     input  wire clk,
     input  wire rst_n,
-    inout  wire sig_in,                    // 异步输入（片外分频后约 1.691MHz）
-    input  wire gate_en,                   // 门控窗口（来自 gate_timer）
-    input  wire gate_tick,                 // 窗口结束脉冲（来自 gate_timer）
-    output reg  count_valid,               // 数据有效脉冲（1 周期）
-    output wire [COUNT_WIDTH-1:0] count    // 本窗口计数值
+    input  wire sig_in,                       // 异步输入（片外分频后约 1.691MHz）
+    input  wire gate_en,                      // 门控窗口（来自 gate_timer）
+    input  wire gate_tick,                    // 窗口结束脉冲（来自 gate_timer）
+    output reg  count_valid,                  // 数据有效脉冲（1 周期）
+    output wire [COUNT_WIDTH-1:0] count       // 本窗口计数值
 );
 
 // ---- 输入信号两级同步 + 上升沿检测 --------------------------------------
@@ -48,4 +47,34 @@ always @(posedge clk or negedge rst_n) begin
     end
 end
 
-wire sig_rise = sig_d2 & ~sig_d3;  //同步后信号的上升沿
+wire sig_rise = sig_d2 & ~sig_d3;   // 同步后信号的上升沿
+
+// ---- 门控计数 + 锁存输出 --------------------------------------------------
+localparam [COUNT_WIDTH-1:0] CNT_MAX = {COUNT_WIDTH{1'b1}};
+
+reg [COUNT_WIDTH-1:0] cnt;      // 工作计数器（当前窗口）
+reg [COUNT_WIDTH-1:0] cnt_out;  // 锁存输出（上一窗口结果）
+
+always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        cnt         <= 0;
+        cnt_out     <= 0;
+        count_valid <= 1'b0;
+    end else begin
+        count_valid <= 1'b0;   // 默认拉低，仅 tick 当拍置 1
+
+        if (gate_tick) begin
+            // 窗口结束：锁存 + 清零 + 脉冲
+            cnt_out     <= cnt;
+            cnt         <= 0;
+            count_valid <= 1'b1;
+        end else if (gate_en && sig_rise && cnt != CNT_MAX) begin
+            // 门控期间对上升沿计数；饱和即停，防止回绕
+            cnt <= cnt + 1;
+        end
+    end
+end
+
+assign count = cnt_out;
+
+endmodule
