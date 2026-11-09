@@ -41,7 +41,7 @@ UVM_ERROR = 0   UVM_FATAL = 0
 
 ---
 
-## 3. 根因分析（这是面试要能讲清楚的）
+## 3. 根因分析
 
 ### 3.1 机制
 
@@ -154,7 +154,7 @@ make sim FIXED=1 TEST=freq_random_test      # 应 EXPECTED=GOT，MISSING=0
 
 ---
 
-## 6. 教训 / 面试要点
+## 6. 教训
 
 1. **单周期脉冲禁止直接 2-FF 同步**。跨域脉冲必须用：① 脉冲→电平（toggle）握手 +
    边沿检测；② 或脉冲同步器（展宽到 ≥ 2 个接收域周期）。本 DUT 的 `done` 正是踩了这条。
@@ -167,17 +167,7 @@ make sim FIXED=1 TEST=freq_random_test      # 应 EXPECTED=GOT，MISSING=0
 
 ---
 
-## 7. 简历可写条目（建议措辞）
-
-> 搭建 UVM 1.2 验证环境（agent/driver/monitor/scoreboard/coverage）对一款
-> 门控测频 DUT 做随机+定向回归；在 50MHz 系统域 / 10–110MHz 被测域的跨时钟场景下，
-> **通过"激励笔数 vs 回收笔数"对账机制，定位出 DUT 单周期脉冲经 2-FF 同步器被漏采的
-> CDC 缺陷（f>50MHz 时窗口静默无响应，100MHz 工况确定性 100% 丢失，且无任何 error）**，
-> 并提出 toggle 握手修复方案、本地+EDA 双平台复现验证修复有效。
-
----
-
-## 8. 复现步骤
+## 7. 复现步骤
 
 ```bash
 # 本地（iverilog）
