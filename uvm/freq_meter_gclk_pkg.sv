@@ -18,5 +18,6 @@ package freq_meter_gclk_pkg;
     `include "freq_env.sv"
     `include "freq_seq.sv"
     `include "freq_test.sv"
+    `include "freq_saturation_test.sv"
 
 endpackage

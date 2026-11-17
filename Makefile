@@ -124,7 +124,7 @@ sim: vcs
 #   2) 编译和所有仿真的 -cm_dir 必须是同一个（这里统一用绝对路径 $(COV_DB)）；
 #   3) urg 的 -dir 要指向 <name>.cm.vdb 这个带后缀的目录，不是 .cm 前缀。
 COV_CM    = line+cond+fsm+branch+tgl
-COV_TESTS = freq_random_test freq_directed_test
+COV_TESTS = freq_random_test freq_directed_test freq_saturation_test
 COV_DB    = $(CURDIR)/covdata/cov.cm
 COV_FIXED ?= 0
 

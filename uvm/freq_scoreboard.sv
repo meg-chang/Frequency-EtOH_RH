@@ -23,6 +23,11 @@ class freq_scoreboard extends uvm_scoreboard;
     int unsigned fail_cnt;
     int unsigned exp_cnt;      // driver 发出的激励笔数
 
+    // 饱和用例专用：该用例人为抬高计数起点（把 cnt 推到 CNT_MAX 附近），
+    // 参考模型从 0 起算的语义不再成立，必须关掉比对，只收覆盖率。
+    // 由 freq_saturation_test 在 build_phase 通过 config_db 置 1。
+    bit disable_check = 0;
+
     // 参考模型状态（在 run_phase 的 fork 中维护）
     bit [23:0] ref_edge;
     bit [23:0] window_edge;
@@ -36,6 +41,7 @@ class freq_scoreboard extends uvm_scoreboard;
         super.build_phase(phase);
         if (!uvm_config_db #(virtual freq_meter_gclk_if)::get(this, "", "vif", vif))
             `uvm_fatal("SCB", "vif not found in config_db")
+        void'(uvm_config_db #(bit)::get(this, "", "disable_check", disable_check));
         result_imp = new("result_imp", this);
         item_imp   = new("item_imp", this);
     endfunction
@@ -66,6 +72,11 @@ class freq_scoreboard extends uvm_scoreboard;
 
     function void write_result(freq_result r);
         int signed exp_val, d;
+        if (disable_check) begin
+            // 饱和用例：只统计收到几笔，不比数值（参考模型语义不适用）
+            pass_cnt++;
+            return;
+        end
         // 架构性偏差必须扣掉，不能塞进容差里：
         //   参考模型把窗口首沿计为 1（ref_edge <= 1），而 DUT 是在 gate_s2
         //   上升沿把 cnt 清零、其后才逐沿累加，所以 DUT 恒比 window_edge 少 1。
