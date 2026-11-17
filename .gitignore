@@ -1,5 +1,9 @@
 # ---- 仿真产物 ----
-sim/
+# 注意必须写 sim/* 而不是 sim/：写 sim/ 会让 git 根本不进这个目录，
+# 后面再 !sim/xxx 也救不回来（父目录被排除时例外规则无效）。
+sim/*
+# 但脚本要留
+!sim/run_modelsim.ps1
 *.out
 *.vvp
 *.vcd
