@@ -60,4 +60,33 @@ module freq_meter_gclk_top;
         run_test();
     end
 
+    // ========================================================================
+    // SVA 断言模块例化
+    // ------------------------------------------------------------------------
+    // 为什么在顶层例化而不是用 bind：
+    //   bind 在 VCS 上工作正常，但 ModelSim 上会踩两个坑——
+    //   ① bind 写在 compilation unit scope 时只给一条 vlog-2650 警告，
+    //      然后静默不 elaborate，断言一条都不跑，编译却显示 Errors: 0；
+    //   ② 按提示加 -cuname 需要配 -mfcu，结果 bind 被关进独立编译单元，
+    //      解析不到目标模块（vsim-12036 Unresolved reference）。
+    //   在顶层例化用层次化路径连内部信号，两个仿真器都稳定。
+    //   详细踩坑记录见 freq_meter_gclk_sva.sv 文件头。
+    //
+    // 注意：连的是 dut 内部信号（cnt / cnt_out），所以需要
+    //   ModelSim: -voptargs="+acc"
+    //   VCS:      -debug_access+all
+    //   两个参数本项目本来就有（uvm_hdl_deposit 也需要）。
+    // ========================================================================
+    freq_meter_gclk_sva #(.COUNT_WIDTH(24)) u_sva (
+        .clk_sys     (vif.clk_sys),
+        .rst_sys_n   (vif.rst_sys_n),
+        .clk_sig     (vif.clk_sig),
+        .rst_sig_n   (vif.rst_sig_n),
+        .gate_en     (vif.gate_en),
+        .count_valid (vif.count_valid),
+        .count       (vif.count),
+        .cnt         (dut.cnt),
+        .cnt_out     (dut.cnt_out)
+    );
+
 endmodule

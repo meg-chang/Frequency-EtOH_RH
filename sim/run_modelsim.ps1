@@ -74,6 +74,15 @@ try {
 `include "freq_meter_gclk_pkg.sv"
 '@ | Set-Content $wrap -Encoding utf8
 
+    # SVA 断言文件也要单独包装：它是独立模块，不在 package 里，
+    # 同样需要先引入 uvm_macros.svh 才能用 `uvm_error
+    $svaWrap = Join-Path $wd "msim_sva_wrap.sv"
+    @'
+// 自动生成：SVA 模块是独立编译单元，宏要显式 include
+`include "uvm_macros.svh"
+`include "freq_meter_gclk_sva.sv"
+'@ | Set-Content $svaWrap -Encoding utf8
+
     $vlogArgs = @(
         "-sv", "-L", "mtiUvm",
         "+incdir+$uvmsrc",
@@ -88,6 +97,7 @@ try {
         "$repo/rtl/freq_meter_gclk_fixed.v",
         "$repo/uvm/freq_meter_gclk_if.sv",
         $wrap,
+        $svaWrap,
         "$repo/uvm/freq_meter_gclk_top.sv"
     )
 
