@@ -116,29 +116,42 @@ sim: vcs
 
 # ---- VCS + 覆盖率回归（RHEL8 实跑，取简历里的覆盖率数字）----
 # 覆盖类型：line + cond + fsm + branch + tgl，另含 UVM covergroup 功能覆盖
-# 产物：simv.cm/（VCS 覆盖率数据库）、sim/cov_report/（HTML 报告）
+# 产物：covdata/<name>.cm.vdb（覆盖率库）、covdata/report/（HTML）、covdata/report_text/（文本）
+#
+# 三个必须一起满足，否则 urg 报 Error-[UCAPI-DNYL] Design not yet loaded：
+#   1) 编译时就要带 -cm 和 -cm_dir —— 设计层次结构写在编译期建的 vdb 里，
+#      只给仿真带 -cm 会生成一个没有层次信息的空库，urg 加载不了；
+#   2) 编译和所有仿真的 -cm_dir 必须是同一个（这里统一用绝对路径 $(COV_DB)）；
+#   3) urg 的 -dir 要指向 <name>.cm.vdb 这个带后缀的目录，不是 .cm 前缀。
 COV_CM    = line+cond+fsm+branch+tgl
 COV_TESTS = freq_random_test freq_directed_test
+COV_DB    = $(CURDIR)/covdata/cov.cm
+COV_FIXED ?= 0
 
 .PHONY: cov
 cov: check_vcs
-	@mkdir -p sim
-	vcs $(VCS_OPTS) -cm $(COV_CM) -f $(UVM_FL) -o sim/simv_cov
+	@mkdir -p sim covdata
+	rm -rf $(COV_DB).vdb
+	vcs $(VCS_OPTS) $(if $(filter 1,$(COV_FIXED)),+define+FIXED_DUT) \
+	    -cm $(COV_CM) -cm_dir $(COV_DB) -f $(UVM_FL) -o sim/simv_cov
 	@for t in $(COV_TESTS); do \
 	    echo ">>> [cov] run $$t ..."; \
 	    ./sim/simv_cov +UVM_TESTNAME=$$t +UVM_VERBOSITY=UVM_MEDIUM \
-	        -cm $(COV_CM) -cm_dir simv.cm -cm_name $$t \
+	        -cm $(COV_CM) -cm_dir $(COV_DB) -cm_name $$t \
 	        -l sim/cov_$$t.log || exit 1; \
+	    grep -E "SCOREBOARD PASS|EXPECTED=" sim/cov_$$t.log || true; \
 	done
-	urg -full64 -dir simv.cm -report sim/cov_report
+	urg -full64 -dir $(COV_DB).vdb -report covdata/report
+	urg -full64 -dir $(COV_DB).vdb -format text -report covdata/report_text
 	@echo ""
-	@echo ">>> 覆盖率报告: sim/cov_report/index.html"
-	@echo ">>> 取数：看 Functional Coverage > cg_freq 的 freq x gate 交叉覆盖率，"
-	@echo ">>>       把它填进简历【XX%】；若 -cm_name 不被你的 VCS 版本识别，去掉它即可"
+	@echo ">>> HTML 报告: covdata/report/index.html"
+	@echo ">>> 文本报告: covdata/report_text/modinfo.txt（看 DUT 模块那一节）"
+	@echo ">>> 简历取数用【功能覆盖率 cg_freq】和【DUT 行/分支覆盖率】，"
+	@echo ">>> 不要报 Total Coverage Summary 那个总分——分母含 UVM 库和未选中的 DUT 版本"
 
 .PHONY: clean
 clean:
-	rm -rf sim simv_uvm csrc DVEfiles *.vpd *.daidir uvm*.log simv.cm
+	rm -rf sim simv_uvm csrc DVEfiles *.vpd *.daidir uvm*.log simv.cm covdata simv_cov*
 
 # ---- ModelSim SE 本地跑 UVM（本机没有 VCS 时用这条）----
 # 依赖 sim/run_modelsim.ps1，会自动处理三件事：
