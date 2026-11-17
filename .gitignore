@@ -43,3 +43,15 @@ output_files/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# ---- ModelSim 产物 ----
+# transcript 是 vsim 每次跑完自动写的命令记录，不是源码。
+# 曾在 commit 26c05b5 里被误提交过一次，已删。
+transcript
+transcript~
+wlf*
+vsim.wlf
+*.ucdb
+work/
+work_*/
+msim/

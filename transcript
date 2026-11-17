@@ -1,7 +1,0 @@
-# vsim -c -L mtiUvm -work work freq_meter_gclk_top "+UVM_TESTNAME=freq_saturation_test" "+UVM_VERBOSITY=UVM_LOW" -do "run -all; quit -f" 
-# Start time: 13:41:36 on Nov 17,2026
-# ** Error (suppressible): (vsim-19) Failed to access library 'work' at "work".
-# No such file or directory. (errno = ENOENT)
-# Error loading design
-# End time: 13:41:36 on Nov 17,2026, Elapsed time: 0:00:00
-# Errors: 1, Warnings: 0
