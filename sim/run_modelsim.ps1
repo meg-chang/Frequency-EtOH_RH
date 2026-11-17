@@ -106,6 +106,14 @@ try {
 
     $vsimArgs = @("-c", "-L", "mtiUvm", "-work", $workLib, "freq_meter_gclk_top",
                   "+UVM_TESTNAME=$Test", "+UVM_VERBOSITY=UVM_LOW")
+    # ★ -voptargs="+acc" 必须有：
+    #   freq_saturation_test 用 uvm_hdl_deposit 改 DUT 内部 cnt，这是层次化路径
+    #   访问。ModelSim 默认 vopt 优化时会把内部信号裁掉，不加这个参数
+    #   uvm_hdl_deposit 会报 "unable to locate hdl path"。
+    #   更阴的是：加了参数但某些信号仍被优化时，deposit 返回 1 却没写进去，
+    #   所以用例里还加了 readback 校验，不能只信返回值。
+    #   VCS 那边对应的是编译期 -debug_access+all（VCS_OPTS 已带）。
+    $vsimArgs += @("-voptargs=+acc")
     if ($Cov) { $vsimArgs += @("-coverage", "-onfinish", "stop") }
     $vsimArgs += @("-do", $doCmds)
 

@@ -69,6 +69,7 @@ class freq_saturation_test extends uvm_test;
     task run_phase(uvm_phase phase);
         freq_single_seq          seq;
         logic [COUNT_WIDTH-1:0]  captured;
+        logic [COUNT_WIDTH-1:0]  readback;
         bit                      deposit_ok;
 
         phase.raise_objection(this);
@@ -81,22 +82,10 @@ class freq_saturation_test extends uvm_test;
         seq.start(env.agt.sqr);
         #1us;                          // 等这笔结果吐完
 
-        // ---- 2. 把内部计数器推到饱和边界 ----
-        //    目标值 CNT_MAX-2：窗口里 DUT 自己数 2 拍到 CNT_MAX，
-        //    第 3 拍就该进 false 侧不再自增。
-        deposit_ok = uvm_hdl_deposit("freq_meter_gclk_top.dut.cnt", CNT_MAX - 2);
-        if (!deposit_ok) begin
-            `uvm_fatal("SAT", "uvm_hdl_deposit on dut.cnt failed. \
-Compile with -debug_access+all (VCS_OPTS already has it).")
-        end
-        `uvm_info("SAT", $sformatf("deposited cnt = %0d, CNT_MAX = %0d",
-                                    CNT_MAX - 2, CNT_MAX), UVM_NONE)
-
-        // ---- 3. 开一个窗口，让 DUT 自己数到饱和 ----
-        //    driver 内部会先等 idle_cyc 再开窗，cnt 在窗口起始沿被清零——
-        //    这是关键问题：窗口一开始 cnt 就归零了，deposit 的值会被冲掉。
-        //    所以必须等窗口已经打开、且计数已经跑起来之后再 deposit。
-        //    做法：把窗口开长一点，在窗口中途 deposit。
+        // ---- 2. 开一个窗口，让 DUT 自己数到饱和 ----
+        //    必须在窗口打开之后、计数已经跑起来时 deposit：
+        //    窗口起始沿 DUT 会把 cnt 清零（gate_s2 && !gate_d 分支），
+        //    写在窗口之前会被这一拍冲掉。
         fork
             begin
                 seq = freq_single_seq::type_id::create("sat");
@@ -105,14 +94,34 @@ Compile with -debug_access+all (VCS_OPTS already has it).")
                 seq.start(env.agt.sqr);
             end
             begin
-                // 等窗口真正打开（driver 开窗后 cnt 会被清零并开始累加）
                 wait (env.agt.drv.vif.gate_en === 1'b1);
-                repeat (200) @(posedge env.agt.drv.vif.clk_sig);  // 让计数跑起来
-                // 此刻 cnt 已经有几百了，把它推到饱和边界
+                repeat (200) @(posedge env.agt.drv.vif.clk_sig);
+                // ★ 必须在时钟沿之后错开一点再 deposit，不能卡在沿上。
+                //   实测踩坑：紧贴 posedge 做 deposit，会与同一时间步里
+                //   `cnt <= cnt + 1'b1` 的 NBA 更新撞在一起——在 ModelSim 上
+                //   NBA 赢，deposit 被覆盖，cnt 继续从 ~197 数到 3999，
+                //   最后报"计数器回绕"其实是 deposit 根本没留住。
+                //   VCS 上只是调度顺序碰巧让 deposit 赢了，看起来能过。
+                //   错开 1ns（100MHz 下周期 10ns，1ns 处于周期中部，
+                //   没有任何 pending NBA）两边行为才一致。
+                #1;
                 deposit_ok = uvm_hdl_deposit("freq_meter_gclk_top.dut.cnt", CNT_MAX - 2);
-                if (!deposit_ok) `uvm_fatal("SAT", "mid-window deposit failed")
-                `uvm_info("SAT", $sformatf(
-                    "mid-window deposit cnt = %0d at time %0t", CNT_MAX - 2, $time), UVM_NONE)
+                if (!deposit_ok) `uvm_fatal("SAT", "mid-window deposit failed (path not found)")
+                // ★ deposit 返回 1 只代表路径找得到，不代表值写进去了。
+                //   ModelSim 上实测过：返回成功但 cnt 没变，最后 cnt_out 是
+                //   正常数出来的值，看起来像"计数器回绕"其实是 deposit 无效。
+                //   所以必须读回确认，否则报错信息会指向错误的方向。
+                if (!uvm_hdl_read("freq_meter_gclk_top.dut.cnt", readback))
+                    `uvm_fatal("SAT", "readback failed")
+                if (readback !== (CNT_MAX - 2)) begin
+                    `uvm_error("SAT", $sformatf(
+                        "deposit did NOT take effect: readback cnt = %0d, expected %0d. \
+On ModelSim add -voptargs=\"+acc\" to vsim so hierarchical paths are visible.",
+                        readback, CNT_MAX - 2))
+                end else begin
+                    `uvm_info("SAT", $sformatf(
+                        "mid-window deposit verified: cnt = %0d at %0t", readback, $time), UVM_NONE)
+                end
             end
         join
         #2us;                          // 等窗口结束、结果吐出
