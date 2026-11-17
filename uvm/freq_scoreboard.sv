@@ -65,14 +65,23 @@ class freq_scoreboard extends uvm_scoreboard;
     endfunction
 
     function void write_result(freq_result r);
-        int signed d;
-        d = $signed(r.count) - $signed(window_edge);
+        int signed exp_val, d;
+        // 架构性偏差必须扣掉，不能塞进容差里：
+        //   参考模型把窗口首沿计为 1（ref_edge <= 1），而 DUT 是在 gate_s2
+        //   上升沿把 cnt 清零、其后才逐沿累加，所以 DUT 恒比 window_edge 少 1。
+        //   这是确定量，不是随机抖动。实测 5 个随机种子 × 50 笔 = 250 笔，
+        //   偏差 100% 为 -1。若把它算进容差，等于白白浪费掉 1 的判别力。
+        exp_val = $signed(window_edge) - 1;
+        d = $signed(r.count) - exp_val;
         if (d < 0) d = -d;
-        if (d <= 3) begin
-            `uvm_info("SCORE", $sformatf("PASS count=%0d ref_edges=%0d", r.count, window_edge), UVM_MEDIUM)
+        // 容差只留给 gate_en 异步采样落在窗口边界上的 ±1 拍不确定性。
+        if (d <= 1) begin
+            `uvm_info("SCORE", $sformatf("PASS count=%0d ref_edges=%0d exp_val=%0d",
+                                          r.count, window_edge, exp_val), UVM_MEDIUM)
             pass_cnt++;
         end else begin
-            `uvm_error("SCORE", $sformatf("FAIL count=%0d ref_edges=%0d", r.count, window_edge))
+            `uvm_error("SCORE", $sformatf("FAIL count=%0d ref_edges=%0d exp_val=%0d delta=%0d",
+                                           r.count, window_edge, exp_val, d))
             fail_cnt++;
         end
     endfunction
@@ -85,9 +94,13 @@ class freq_scoreboard extends uvm_scoreboard;
         `uvm_info("SCORE", $sformatf("==== EXPECTED=%0d GOT=%0d MISSING=%0d ====",
                                       exp_cnt, got, (exp_cnt > got) ? (exp_cnt - got) : 0), UVM_NONE)
         if (exp_cnt != got)
+            // 消息用英文：ModelSim/VCS 控制台按本地代码页输出，中文会变 ?，
+            // 而这条警告恰恰是最关键的信息（漏采笔数），不能让它读不出来。
+            // 中文解释留在注释和验证报告里。
             `uvm_warning("SCORE", $sformatf(
-                "有 %0d 笔激励没有收到 count_valid：DUT 的 done 是被测域单周期脉冲，\
-当 T_clk_sig < T_clk_sys（f>50MHz）时两级同步器会漏采，属 DUT 跨域缺陷",
+                "%0d stimuli got NO count_valid: DUT done is a 1-cycle pulse in the \
+measured clock domain; when T_clk_sig < T_clk_sys (f > 50MHz) the 2-FF synchronizer \
+misses it. This is the DUT CDC defect, not a testbench issue.",
                 exp_cnt - got))
     endfunction
 

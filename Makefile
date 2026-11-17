@@ -14,6 +14,13 @@
 #   make cov                   # 覆盖率回归：两个 test 全跑 + urg 出报告（RHEL8）
 #   make clean                 # 清产物
 #
+# 本机（Windows + ModelSim SE，没有 VCS）走另一套入口：
+#   make msim                  # 原版 DUT 随机测试，应看到 MISSING>0
+#   make msim_fixed            # 修复版 DUT，应 MISSING=0
+#   make msim_directed         # 定向测试
+#   make msim_cov              # 覆盖率报告
+#   make msim_clean            # 清 ModelSim 产物
+#
 # 注：所有 VCS 调用都显式带 -full64 —— make 的 recipe 在非交互 shell 里
 #     不展开 alias，若只靠 alias vcs='vcs -full64' 会退回 32 位模式并报
 #     "Cannot find VCS compiler"。
@@ -132,3 +139,36 @@ cov: check_vcs
 .PHONY: clean
 clean:
 	rm -rf sim simv_uvm csrc DVEfiles *.vpd *.daidir uvm*.log simv.cm
+
+# ---- ModelSim SE 本地跑 UVM（本机没有 VCS 时用这条）----
+# 依赖 sim/run_modelsim.ps1，会自动处理三件事：
+#   1. ModelSim 内置 uvm_pkg 是 1.1d，宏要显式 include uvm_macros.svh
+#      （VCS 的 -ntb_opts uvm-1.2 会自动做，ModelSim 不会）
+#   2. 覆盖率编译选项是 -cover bcesxf（toggle 与 txf 互斥）
+#   3. 仿真必须 -onfinish stop，否则 $finish 让 coverage save 来不及跑
+#
+#   make msim              # 原版 DUT，随机测试（应 MISSING>0，暴露 CDC 缺陷）
+#   make msim_fixed        # 修复版 DUT（应 EXPECTED=GOT，MISSING=0）
+#   make msim_directed     # 定向测试
+#   make msim_cov          # 出覆盖率报告（功能覆盖率 100%，DUT 分支 93.33%）
+MSIM_PWSH ?= pwsh -NoProfile -File sim/run_modelsim.ps1
+
+.PHONY: msim
+msim:
+	$(MSIM_PWSH)
+
+.PHONY: msim_fixed
+msim_fixed:
+	$(MSIM_PWSH) -Fixed
+
+.PHONY: msim_directed
+msim_directed:
+	$(MSIM_PWSH) -Test freq_directed_test
+
+.PHONY: msim_cov
+msim_cov:
+	$(MSIM_PWSH) -Cov
+
+.PHONY: msim_clean
+msim_clean:
+	$(MSIM_PWSH) -Clean
